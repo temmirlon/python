@@ -1,4 +1,6 @@
 import re
+import time
+start = time.time()
 
 FILE_PATH = "/Users/temmirlon/Documents/все что связано with coding/projects/testcppfiles/SPCreateDrawingPartDFTest.cpp"
 
@@ -32,6 +34,7 @@ def smart_split(s: str):
 
         if in_str:
             current.append(char)
+            continue
 
         if char in "([{<":
             depth += 1
@@ -39,7 +42,7 @@ def smart_split(s: str):
             depth -= 1
 
         if char == "," and depth == 0:
-            args.append(current)
+            args.append("".join(current).strip())
             current = []
             continue
 
@@ -60,10 +63,30 @@ def main():
 
     for level, inside in matches:
         parts = []
-        for part in inside.split(","):
-            parts.append(part.strip())
+        for part in smart_split(inside):
+            parts.append(part)
 
-        print(parts)
+        text = parts[0]
+        args = parts[1:]
+
+        if "[{}]" in text:
+            text = text.replace("[{}] ", "").replace("[{}]", "")
+
+        new_args = []
+        for a in args:
+            if a.replace(" ", "") == "strFN":
+                continue
+            new_args.append(a)
+        args = new_args
+
+        new_inside = ", ".join([text] + args)
+        new_log = f"{level}({new_inside})"
+
+        print(new_log)
+
+    end = time.time()
+    print("Execution time: ", end - start, "seconds")
+
 
 if __name__ == "__main__":
     main()
