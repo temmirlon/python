@@ -1,8 +1,12 @@
-price1 = 3000.12432
-price2 = -72333.12
-price3 = 11422.42
+import re
 
+a = "apple orange apple banana"
 
-print(f"Price 1 is ${price1:+,.2f}") # mix and match flags
-print(f"Price 2 is ${price2:+,.2f}")
-print(f"Price 3 is ${price3:+,.2f}")
+pattern = "apple"
+repl = "grape"
+
+# a way to modify strings by replacing specific patterns
+# Replace all occurrences of 'apple' with 'grape'
+result = re.sub(pattern, repl, a)
+
+print(result)
