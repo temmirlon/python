@@ -1,91 +1,97 @@
-import re
-import time
-start = time.time()
+from tree_sitter import Language, Parser
+import os
 
-FILE_PATH = "/Users/temmirlon/Documents/все что связано with coding/projects/testcppfiles/SPCreateDrawingPartDFTest.cpp"
+cpp_grammar_path = r'E:\\CAD\\log_refactor\\tree-sitter-cpp\\tree-sitter-cpp-master'
 
-def smart_split(s: str):
-    args = []
-    current = []
-    depth = 0
-    in_str = False
-    esc = False
-    quote = None
+build_path = 'build/my-language.so'
+if not os.path.exists(build_path):
+    Language.build_library(
+        build_path,
+        [cpp_grammar_path]
+    )
 
-    for char in s:
-        if esc:
-            current.append(char)
-            esc = False
+CPP_LANG = Language(build_path, 'cpp')
+parser = Parser()
+parser.set_language(CPP_LANG)
+
+
+# func for search of log calls
+def FindLogCalls(node):
+    if node.type == "call_expression":
+        args_node = node.child_by_field_name("arguments")
+        if args_node:
+            for arg in args_node.children:
+                if arg.type == "string_literal":
+                    arg_text = arg.text.decode("latin-1")
+
+                    if "%s" in arg_text or "[{}]" in arg_text or "[%s]" in arg_text:
+                        yield node
+                        break  # Found
+
+    for child in node.children:
+        yield from FindLogCalls(child)
+
+
+# get pattern
+def GetArguments(call_node):
+    args_node = call_node.child_by_field_name("arguments")
+
+    result = []
+    for arg in args_node.children:
+        if arg.type in (',', '(', ')') or arg.type == "comment":
             continue
+        result.append(arg)
 
-        if char == "\\":
-            esc = True
-            current.append(char)
+    return result
+
+
+def LogRefactor(func_name, args):
+    if not args:
+        return func_name + "()"
+
+    fmt = args[0]
+
+    if fmt.startswith('"') and fmt.endswith('"'):
+        new_fmt = fmt.replace("[{}]", "").replace("[{} ]", "")
+    else:
+        new_fmt = fmt
+
+    new_args = [new_fmt]
+    for a in args[1:]:
+        if a.strip() in ("strFN", "strFn"):
             continue
+        new_args.append(a)
 
-        if char in ['"', "'"]:
-            if not in_str:
-                in_str = True
-                quote = char
-            elif quote == char:
-                in_str = False
-            current.append(char)
-            continue
+    return f"{func_name}({', '.join(new_args)});"
 
-        if in_str:
-            current.append(char)
-            continue
-
-        if char in "([{<":
-            depth += 1
-        elif char in ")]}>":
-            depth -= 1
-
-        if char == "," and depth == 0:
-            args.append("".join(current).strip())
-            current = []
-            continue
-
-        current.append(char)
-
-    last = "".join(current).strip()
-    if last:
-        args.append(last)
-    return args
 
 def main():
-    with open(FILE_PATH, "r", encoding="latin-1") as f:
+    FILE_PATH = 'E:\\cpp\\practice\\SPCreateDrawingPartDF.cpp'
+
+    with open(FILE_PATH, 'r', encoding='latin-1') as f:
         content = f.read()
 
-    pattern = r'l\.(Standard|Error|Warning|Info|Debug|DebugVerbose)\s*\((.+?)\)\s*;'
+    tree = parser.parse(bytes(content, 'latin-1'))
+    root_node = tree.root_node
 
-    matches = re.findall(pattern, content, re.DOTALL)
+    num = 0
 
-    for level, inside in matches:
-        parts = []
-        for part in smart_split(inside):
-            parts.append(part)
+    for call in FindLogCalls(root_node):
+        func_name = call.child_by_field_name("function").text.decode("latin-1")
+        args_nodes = GetArguments(call)
 
-        text = parts[0]
-        args = parts[1:]
+        args_text = [arg.text.decode('latin-1') for arg in args_nodes]
 
-        if "[{}]" in text:
-            text = text.replace("[{}] ", "").replace("[{}]", "")
+        new_log = LogRefactor(func_name, args_text)
 
-        new_args = []
-        for a in args:
-            if a.replace(" ", "") == "strFN":
-                continue
-            new_args.append(a)
-        args = new_args
+        num += 1
 
-        new_inside = ", ".join([text] + args)
-        new_log = f"{level}({new_inside})"
-
+        print("\n === ORIGINAL ===")
+        print(f"{func_name}({', '.join(args_text)});")
+        print("\n === REFACTORED ===")
         print(new_log)
 
-    end = time.time()
-    print("Execution time: ", end - start, "seconds")
+    print(f"FOUNDS: {num}")
 
 
 if __name__ == "__main__":
