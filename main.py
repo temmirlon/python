@@ -1,7 +1,7 @@
 from tree_sitter import Language, Parser
 import os
 
-cpp_grammar_path = r'E:\\CAD\\log_refactor\\tree-sitter-cpp\\tree-sitter-cpp-master'
+cpp_grammar_path = r'/Users/temmirlon/Documents/все что связано with coding/projects/python/tree-sitter-cpp-master'
 
 build_path = 'build/my-language.so'
 if not os.path.exists(build_path):
